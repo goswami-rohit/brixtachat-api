@@ -62,5 +62,5 @@ export async function POST(req: NextRequest) {
     }),
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true }, { headers: corsHeaders });
 }
