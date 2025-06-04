@@ -39,7 +39,7 @@ class SessionMessageStore {
     return this.sessions.get(sessionId) || [];
   }
 
-  findSessionForBotReply(chatId: string): string | null {
+  findSessionForBotReply(): string | null {
     const sessionIds = Array.from(this.sessions.keys());
     return sessionIds.length > 0 ? sessionIds[sessionIds.length - 1] : null;
   }
