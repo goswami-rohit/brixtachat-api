@@ -1,0 +1,30 @@
+// src/app/api/telegramWebhook/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { messageStore } from '@/app/api/telegramWebhook/store';
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+
+  // Get the Telegram bot's sent message text
+  const text = body?.message?.text || body?.edited_message?.text;
+  if (!text) return NextResponse.json({ ok: true });
+
+  // Try to extract [sessionId] prefix from message text
+  // Format: [sessionId] rest of message
+  const match = text.match(/^\[(.+?)\]\s*(.*)$/);
+  if (!match) {
+    // No sessionId prefix found, ignore message or log if needed
+    console.warn('No sessionId prefix in bot message:', text);
+    return NextResponse.json({ ok: true });
+  }
+
+  const [, sessionId, messageText] = match;
+
+  // Use 'Bot' as sender by default
+  const from = body?.message?.from?.first_name || 'Bot';
+
+  // Save bot message text for that session
+  messageStore.add(sessionId, { text: messageText, from });
+
+  return NextResponse.json({ ok: true });
+}
