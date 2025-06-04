@@ -1,4 +1,4 @@
-// src/app/api/getMessages/route.ts
+// src/app/api/getMessage/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { messageStore } from '@/app/api/telegramWebhook/store';
 

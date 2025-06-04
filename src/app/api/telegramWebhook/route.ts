@@ -29,38 +29,59 @@ export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
-  const body = await req.json();
+  try {
+    const body = await req.json();
+    const messageText = body?.message?.text;
+    
+    if (!messageText) {
+      return NextResponse.json({ ok: true }, { headers: corsHeaders });
+    }
 
-  const messageText = body?.message?.text;
-  if (!messageText) return NextResponse.json({ ok: true });
-  // Extract sessionId from message like: [sessionId] actual message
-  const match = messageText.match(/^\[(.+?)\]\s(.+)$/);
-  if (!match) {
-    console.warn('No sessionId found in message');
-    return NextResponse.json({ ok: true });
+    // Try to extract sessionId from message like: [sessionId] actual message
+    const match = messageText.match(/^\[(.+?)\]\s(.+)$/);
+    
+    if (match) {
+      // This is a user message with sessionId prefix
+      const sessionId = match[1];
+      const actualText = match[2];
+
+      // Store the user's message (cleaned)
+      messageStore.add(sessionId, { from: 'user', text: actualText });
+
+      // Generate bot's reply
+      const botReply = `Hello! You said: ${actualText}`;
+
+      // Store the bot's reply in the same session
+      messageStore.add(sessionId, { from: 'bot', text: botReply });
+
+      // Send reply to Telegram
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_CHAT_ID,
+          text: botReply,
+        }),
+      });
+    } else {
+      // This is likely a bot reply without sessionId prefix
+      // Find the most recent session and add the bot message
+      const sessionId = messageStore.findSessionForBotReply(TELEGRAM_CHAT_ID);
+      
+      if (sessionId) {
+        // Store the bot's message
+        messageStore.add(sessionId, { from: 'bot', text: messageText });
+      } else {
+        console.warn('No active session found for bot reply:', messageText);
+      }
+    }
+
+    return NextResponse.json({ ok: true }, { headers: corsHeaders });
+  } catch (error) {
+    console.error('Error in telegramWebhook:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { 
+      status: 500, 
+      headers: corsHeaders 
+    });
   }
-
-  const sessionId = match[1];
-  const actualText = match[2];
-
-  // Store the user's message (cleaned)
-  messageStore.add(sessionId, { from: 'user', text: actualText });
-
-  // Generate bot's reply (you can replace this logic with AI or any business rule)
-  const botReply = `Hello! You said: ${actualText}`;
-
-  // Store the bot's reply in the same session
-  messageStore.add(sessionId, { from: 'bot', text: botReply });
-
-  // Send reply to Telegram (so user on phone still sees it)
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text: botReply,
-    }),
-  });
-
-  return NextResponse.json({ ok: true }, { headers: corsHeaders });
 }

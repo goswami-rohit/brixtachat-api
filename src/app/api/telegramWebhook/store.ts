@@ -39,6 +39,11 @@ class SessionMessageStore {
     return this.sessions.get(sessionId) || [];
   }
 
+  findSessionForBotReply(chatId: string): string | null {
+    const sessionIds = Array.from(this.sessions.keys());
+    return sessionIds.length > 0 ? sessionIds[sessionIds.length - 1] : null;
+  }
+  
   clear(sessionId: string) {
     this.sessions.delete(sessionId);
     if (this.timers.has(sessionId)) {
