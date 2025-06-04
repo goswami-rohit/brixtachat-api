@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     } else {
       // This is likely a bot reply without sessionId prefix
       // Find the most recent session and add the bot message
-      const sessionId = messageStore.findSessionForBotReply(TELEGRAM_CHAT_ID);
+      const sessionId = messageStore.findSessionForBotReply();
       
       if (sessionId) {
         // Store the bot's message
