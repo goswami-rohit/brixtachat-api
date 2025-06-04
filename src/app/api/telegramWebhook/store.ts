@@ -6,7 +6,7 @@ class SessionMessageStore {
   private sessions = new Map<string, Message[]>();
   private timers = new Map<string, NodeJS.Timeout>();
   private maxMessagesPerSession = 100;
-  private sessionTimeoutMs = 10000; // 10 seconds inactivity timeout
+  private sessionTimeoutMs = 5 * 60 * 1000; // 5 min inactivity timeout
 
   add(sessionId: string, message: Message) {
     if (!this.sessions.has(sessionId)) {

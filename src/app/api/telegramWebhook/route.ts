@@ -4,6 +4,9 @@ import { messageStore } from '@/app/api/telegramWebhook/store';
 
 const allowedOrigins = ['http://localhost:3000', 'https://mycoco.site', 'http://35.154.2.48', 'http://35.154.2.48:3000'];
 
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
+
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowed = origin && allowedOrigins.includes(origin) ? origin : '';
   return {
@@ -28,26 +31,36 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
 
-  // Get the Telegram bot's sent message text
-  const text = body?.message?.text || body?.edited_message?.text;
-  if (!text) return NextResponse.json({ ok: true });
-
-  // Try to extract [sessionId] prefix from message text
-  // Format: [sessionId] rest of message
-  const match = text.match(/^\[(.+?)\]\s*(.*)$/);
+  const messageText = body?.message?.text;
+  if (!messageText) return NextResponse.json({ ok: true });
+  // Extract sessionId from message like: [sessionId] actual message
+  const match = messageText.match(/^\[(.+?)\]\s(.+)$/);
   if (!match) {
-    // No sessionId prefix found, ignore message or log if needed
-    console.warn('No sessionId prefix in bot message:', text);
+    console.warn('No sessionId found in message');
     return NextResponse.json({ ok: true });
   }
 
-  const [, sessionId, messageText] = match;
+  const sessionId = match[1];
+  const actualText = match[2];
 
-  // Use 'Bot' as sender by default
-  const from = body?.message?.from?.first_name || 'Bot';
+  // Store the user's message (cleaned)
+  messageStore.add(sessionId, { from: 'user', text: actualText });
 
-  // Save bot message text for that session
-  messageStore.add(sessionId, { text: messageText, from });
+  // Generate bot's reply (you can replace this logic with AI or any business rule)
+  const botReply = `Hello! You said: ${actualText}`;
 
-  return NextResponse.json({ ok: true }, { headers: corsHeaders });
+  // Store the bot's reply in the same session
+  messageStore.add(sessionId, { from: 'bot', text: botReply });
+
+  // Send reply to Telegram (so user on phone still sees it)
+  await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: TELEGRAM_CHAT_ID,
+      text: botReply,
+    }),
+  });
+
+  return NextResponse.json({ ok: true });
 }
